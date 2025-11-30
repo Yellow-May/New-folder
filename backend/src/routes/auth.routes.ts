@@ -10,3 +10,4 @@ router.get('/profile', authenticate, getProfile);
 
 export default router;
 
+
