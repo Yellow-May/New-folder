@@ -378,24 +378,30 @@ const Landing = () => {
               <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">
                 Application Steps
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-asceta-blue text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                     1
                   </div>
-                  <p className="text-gray-700">
-                    Fill out the online application form.
-                  </p>
+                  <p className="text-gray-700">Create an account.</p>
                 </div>
                 <div className="text-center">
                   <div className="w-16 h-16 bg-asceta-blue text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                     2
                   </div>
-                  <p className="text-gray-700">Upload required documents.</p>
+                  <p className="text-gray-700">Pay for the application form.</p>
                 </div>
                 <div className="text-center">
                   <div className="w-16 h-16 bg-asceta-blue text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                     3
+                  </div>
+                  <p className="text-gray-700">
+                    Wait for admission confirmation and onboarding information.
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-asceta-blue text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                    4
                   </div>
                   <p className="text-gray-700">
                     Wait for admission confirmation and onboarding information.
