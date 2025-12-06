@@ -40,6 +40,16 @@ const Landing = () => {
       }
     });
 
+    // Handle hash navigation to FAQ section
+    if (window.location.hash === "#faq") {
+      setTimeout(() => {
+        const faqSection = document.getElementById("faq");
+        if (faqSection) {
+          faqSection.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 500);
+    }
+
     return () => {
       subscription.unsubscribe();
     };
@@ -460,7 +470,7 @@ const Landing = () => {
       </section>
 
       {/* FAQs */}
-      <section className="py-16 bg-gray-50">
+      <section id="faq" className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-8 text-center">
             Frequently Asked Questions

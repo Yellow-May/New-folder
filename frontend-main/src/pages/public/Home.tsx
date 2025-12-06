@@ -179,12 +179,12 @@ const Home = () => {
       </section>
 
       {/* Important!! */}
-      <section className="relative overflow-hidden">
-        <Link to="/accadd" className="w-full h-full bg-black">
+      <section className="relative overflow-hidden bg-black">
+        <Link to="/accadd" className="w-full h-full">
           <img
             src={"/images/accadd.jpg"}
             alt={`ACCASS`}
-            className={`w-full h-full object-contain`}
+            className={`w-full h-full max-h-[250px] object-contain`}
           />
         </Link>
       </section>
