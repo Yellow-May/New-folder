@@ -7,11 +7,14 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:prod": "yarn migration:run:prod && yarn seed:prod && node dist/server.js",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/data-source.ts",
+    "migration:run:prod": "typeorm-ts-node-commonjs migration:run -d dist/config/data-source.js",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/data-source.ts",
-    "seed": "ts-node src/seed.ts"
+    "seed": "ts-node src/seed.ts",
+    "seed:prod": "node dist/seed.js"
   },
   "keywords": [],
   "author": "",
