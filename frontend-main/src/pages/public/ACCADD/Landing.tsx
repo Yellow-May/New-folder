@@ -145,7 +145,7 @@ const handleDownloadBrochure = () => {
 
 const Landing = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [fullName, setFullName] = useState("");
+  const [_, setFullName] = useState("");
 
   useEffect(() => {
     const checkAuth = async () => {
