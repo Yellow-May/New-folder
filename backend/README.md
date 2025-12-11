@@ -1,6 +1,6 @@
 # ASCETA Backend API
 
-Backend API for ASCETA website built with Node.js, Express, TypeORM, and PostgreSQL.
+Backend API for ASCETA website built with Node.js, Express, Mongoose, and MongoDB.
 
 ## Setup
 
@@ -14,19 +14,27 @@ yarn install
 cp .env.example .env
 ```
 
-3. Update the `.env` file with your database credentials and other configuration.
-
-4. Make sure PostgreSQL is running and create the database:
-```sql
-CREATE DATABASE asceta_db;
+3. Update the `.env` file with your database credentials and other configuration:
+```
+MONGODB_URI=mongodb://localhost:27017/asceta_mongodb
+JWT_SECRET=your-secret-key
+FRONTEND_MAIN_URL=http://localhost:3000
+FRONTEND_ADMIN_URL=http://localhost:3001
 ```
 
-5. Run migrations (if using migrations):
+4. Make sure MongoDB is running (or use MongoDB Atlas).
+
+5. Run migrations:
 ```bash
-yarn migration:run
+yarn migration:up
 ```
 
-6. Start the development server:
+6. (Optional) Seed the database with sample data:
+```bash
+yarn seed
+```
+
+7. Start the development server:
 ```bash
 yarn dev
 ```

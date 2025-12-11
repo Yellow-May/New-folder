@@ -1,6 +1,6 @@
 # ASCETA Website
 
-A full-stack website for Abia State College of Education (Technical) Arochukwu built with React.js, Node.js, PostgreSQL, and TypeORM.
+A full-stack website for Abia State College of Education (Technical) Arochukwu built with React.js, Node.js, MongoDB, and Mongoose.
 
 ## Project Structure
 
@@ -12,18 +12,18 @@ This project consists of three separate codebases:
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express.js, TypeORM, PostgreSQL
+- **Backend**: Node.js, Express.js, Mongoose, MongoDB
 - **Main Frontend**: React.js, React Router, TailwindCSS, Vite
 - **Admin Frontend**: React.js, React Router, TailwindCSS, Vite, React Quill
 - **Authentication**: JWT-based authentication
-- **Database**: PostgreSQL
+- **Database**: MongoDB
 
 ## Setup Instructions
 
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- PostgreSQL (v12 or higher)
+- MongoDB (v5 or higher) or MongoDB Atlas account
 - Yarn package manager
 
 ### Backend Setup
@@ -45,22 +45,28 @@ cp .env.example .env
 
 4. Update the `.env` file with your database credentials:
 ```
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-DB_NAME=asceta_db
+MONGODB_URI=mongodb://localhost:27017/asceta_mongodb
 JWT_SECRET=your-secret-key
 FRONTEND_MAIN_URL=http://localhost:3000
 FRONTEND_ADMIN_URL=http://localhost:3001
 ```
 
-5. Create the PostgreSQL database:
-```sql
-CREATE DATABASE asceta_db;
+   For MongoDB Atlas, use:
+   ```
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/asceta_mongodb
+   ```
+
+5. Run database migrations:
+```bash
+yarn migration:up
 ```
 
-6. Start the backend server:
+6. (Optional) Seed the database with sample data:
+```bash
+yarn seed
+```
+
+7. Start the backend server:
 ```bash
 yarn dev
 ```

@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { AppDataSource } from './config/data-source';
 import { connectMongoDB, getMongoDBStatus } from './config/mongodb';
 import authRoutes from './routes/auth.routes';
 import newsRoutes from './routes/news.routes';
@@ -38,19 +37,12 @@ app.use('/api/admission', admissionRoutes);
 
 // Health check with database status
 app.get('/api/health', (req, res) => {
-  const postgresStatus = AppDataSource.isInitialized
-    ? { connected: true, error: null }
-    : { connected: false, error: 'PostgreSQL not initialized' };
-  
   const mongoStatus = getMongoDBStatus();
   
-  const allHealthy = postgresStatus.connected && mongoStatus.connected;
-  
-  res.status(allHealthy ? 200 : 503).json({
-    status: allHealthy ? 'ok' : 'degraded',
+  res.status(mongoStatus.connected ? 200 : 503).json({
+    status: mongoStatus.connected ? 'ok' : 'degraded',
     message: 'ASCETA API is running',
-    databases: {
-      postgresql: postgresStatus,
+    database: {
       mongodb: {
         connected: mongoStatus.connected,
         error: mongoStatus.error,
@@ -60,61 +52,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Initialize databases independently
-async function initializeDatabases() {
-  const postgresPromise = AppDataSource.initialize()
-    .then(() => {
-      console.log('✅ PostgreSQL connected successfully');
-      return { success: true, db: 'PostgreSQL' };
-    })
-    .catch((error) => {
-      console.error('❌ PostgreSQL connection failed:', error.message);
-      return { success: false, db: 'PostgreSQL', error: error.message };
-    });
-
-  const mongoPromise = connectMongoDB()
-    .then(() => {
-      const status = getMongoDBStatus();
-      if (status.connected) {
-        console.log('✅ MongoDB connected successfully');
-        return { success: true, db: 'MongoDB' };
-      } else {
-        console.warn('⚠️  MongoDB connection failed:', status.error);
-        return { success: false, db: 'MongoDB', error: status.error };
-      }
-    })
-    .catch((error) => {
-      console.error('❌ MongoDB connection error:', error);
-      return { success: false, db: 'MongoDB', error: error instanceof Error ? error.message : 'Unknown error' };
-    });
-
-  // Wait for both connections to attempt (don't fail if one fails)
-  const [postgresResult, mongoResult] = await Promise.allSettled([
-    postgresPromise,
-    mongoPromise,
-  ]);
-
-  type DBResult = { success: boolean; db: string; error?: string };
-  
-  const results: DBResult[] = [
-    postgresResult.status === 'fulfilled' ? postgresResult.value : { success: false, db: 'PostgreSQL', error: 'Promise rejected' },
-    mongoResult.status === 'fulfilled' ? mongoResult.value : { success: false, db: 'MongoDB', error: 'Promise rejected' },
-  ];
-
-  // Log summary
-  const successful = results.filter((r) => r.success);
-  const failed = results.filter((r) => !r.success);
-
-  if (successful.length > 0) {
-    console.log(`\n✅ Successfully connected to: ${successful.map((r) => r.db).join(', ')}`);
-  }
-  if (failed.length > 0) {
-    console.warn(`\n⚠️  Failed to connect to: ${failed.map((r) => `${r.db} (${r.error})`).join(', ')}`);
-    console.warn('⚠️  Server will continue running, but features requiring these databases may not work.');
+// Initialize MongoDB connection
+async function initializeDatabase() {
+  try {
+    await connectMongoDB();
+    const status = getMongoDBStatus();
+    
+    if (status.connected) {
+      console.log('✅ MongoDB connected successfully');
+    } else {
+      console.error('❌ MongoDB connection failed:', status.error);
+      console.warn('⚠️  Server will start, but features requiring MongoDB may not work.');
+    }
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    console.warn('⚠️  Server will start, but features requiring MongoDB may not work.');
   }
 
-  // Start server regardless of database connection status
-  // This ensures the API can still serve requests even if one database fails
+  // Start server
   app.listen(PORT, () => {
     console.log(`\n🚀 Server is running on port ${PORT}`);
     console.log(`📊 Health check available at http://localhost:${PORT}/api/health\n`);
@@ -122,7 +77,7 @@ async function initializeDatabases() {
 }
 
 // Start the server
-initializeDatabases();
+initializeDatabase();
 
 export default app;
 

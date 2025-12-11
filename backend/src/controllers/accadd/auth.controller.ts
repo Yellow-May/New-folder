@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AccaddAuth } from '../../models/accadd/auth.model';
+import { AccaddUser } from '../../models/accadd/user.model';
 import { getMongoDBStatus } from '../../config/mongodb';
 
 /**
@@ -28,8 +28,8 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Check if user already exists
-    const existingUser = await AccaddAuth.findOne({
-      $or: [{ email }, { supabaseUserId }],
+    const existingUser = await AccaddUser.findOne({
+      $or: [{ email: email.toLowerCase() }, { supabaseUserId }],
     });
 
     if (existingUser) {
@@ -47,8 +47,8 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Create new user
-    const newUser = new AccaddAuth({
-      email,
+    const newUser = new AccaddUser({
+      email: email.toLowerCase(),
       fullName,
       supabaseUserId,
       isEmailVerified: true, // Supabase handles email verification
@@ -100,7 +100,7 @@ export const getAuthStatus = async (req: Request, res: Response) => {
       });
     }
 
-    const user = await AccaddAuth.findOne({ email: email.toLowerCase() });
+    const user = await AccaddUser.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(404).json({

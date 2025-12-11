@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../config/data-source';
-import { Event } from '../entities/Event';
+import { Event } from '../models/Event.model';
+import { User } from '../models/User.model';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { body, validationResult, query } from 'express-validator';
 
@@ -15,21 +15,37 @@ export const getAllEvents = [
         return;
       }
 
-      const eventRepository = AppDataSource.getRepository(Event);
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const [events, total] = await eventRepository
-        .createQueryBuilder('event')
-        .leftJoinAndSelect('event.createdBy', 'createdBy')
-        .orderBy('event.eventDate', 'ASC')
-        .skip(skip)
-        .take(limit)
-        .getManyAndCount();
+      const [events, total] = await Promise.all([
+        Event.find()
+          .sort({ eventDate: 1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Event.countDocuments(),
+      ]);
+
+      // Populate createdBy information
+      const eventsWithCreators = await Promise.all(
+        events.map(async (item) => {
+          const creator = await User.findById(item.createdById).select('id firstName lastName email').lean();
+          return {
+            ...item,
+            createdBy: creator ? {
+              id: creator.id,
+              firstName: creator.firstName,
+              lastName: creator.lastName,
+              email: creator.email,
+            } : null,
+          };
+        })
+      );
 
       res.json({
-        events,
+        events: eventsWithCreators,
         pagination: {
           page,
           limit,
@@ -49,18 +65,26 @@ export const getEventById = async (
   res: Response
 ): Promise<void> => {
   try {
-    const eventRepository = AppDataSource.getRepository(Event);
-    const event = await eventRepository.findOne({
-      where: { id: req.params.id },
-      relations: ['createdBy'],
-    });
+    const event = await Event.findById(req.params.id).lean();
 
     if (!event) {
       res.status(404).json({ message: 'Event not found' });
       return;
     }
 
-    res.json(event);
+    // Populate createdBy
+    const creator = await User.findById(event.createdById).select('id firstName lastName email').lean();
+    const eventWithCreator = {
+      ...event,
+      createdBy: creator ? {
+        id: creator.id,
+        firstName: creator.firstName,
+        lastName: creator.lastName,
+        email: creator.email,
+      } : null,
+    };
+
+    res.json(eventWithCreator);
   } catch (error) {
     console.error('Get event by id error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -87,8 +111,7 @@ export const createEvent = [
 
       const { title, description, eventDate, location, imageUrl } = req.body;
 
-      const eventRepository = AppDataSource.getRepository(Event);
-      const event = eventRepository.create({
+      const event = new Event({
         title,
         description,
         eventDate: new Date(eventDate),
@@ -97,12 +120,19 @@ export const createEvent = [
         createdById: req.user.id,
       });
 
-      await eventRepository.save(event);
+      await event.save();
 
-      const savedEvent = await eventRepository.findOne({
-        where: { id: event.id },
-        relations: ['createdBy'],
-      });
+      // Populate createdBy
+      const creator = await User.findById(event.createdById).select('id firstName lastName email').lean();
+      const savedEvent = {
+        ...event.toObject(),
+        createdBy: creator ? {
+          id: creator.id,
+          firstName: creator.firstName,
+          lastName: creator.lastName,
+          email: creator.email,
+        } : null,
+      };
 
       res.status(201).json(savedEvent);
     } catch (error) {
@@ -129,10 +159,7 @@ export const updateEvent = [
         return;
       }
 
-      const eventRepository = AppDataSource.getRepository(Event);
-      const event = await eventRepository.findOne({
-        where: { id: req.params.id },
-      });
+      const event = await Event.findById(req.params.id);
 
       if (!event) {
         res.status(404).json({ message: 'Event not found' });
@@ -155,12 +182,19 @@ export const updateEvent = [
       if (location !== undefined) event.location = location;
       if (imageUrl !== undefined) event.imageUrl = imageUrl;
 
-      await eventRepository.save(event);
+      await event.save();
 
-      const updatedEvent = await eventRepository.findOne({
-        where: { id: event.id },
-        relations: ['createdBy'],
-      });
+      // Populate createdBy
+      const creator = await User.findById(event.createdById).select('id firstName lastName email').lean();
+      const updatedEvent = {
+        ...event.toObject(),
+        createdBy: creator ? {
+          id: creator.id,
+          firstName: creator.firstName,
+          lastName: creator.lastName,
+          email: creator.email,
+        } : null,
+      };
 
       res.json(updatedEvent);
     } catch (error) {
@@ -180,10 +214,7 @@ export const deleteEvent = async (
       return;
     }
 
-    const eventRepository = AppDataSource.getRepository(Event);
-    const event = await eventRepository.findOne({
-      where: { id: req.params.id },
-    });
+    const event = await Event.findById(req.params.id);
 
     if (!event) {
       res.status(404).json({ message: 'Event not found' });
@@ -195,7 +226,7 @@ export const deleteEvent = async (
       return;
     }
 
-    await eventRepository.remove(event);
+    await Event.findByIdAndDelete(req.params.id);
 
     res.json({ message: 'Event deleted successfully' });
   } catch (error) {

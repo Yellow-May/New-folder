@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
 import type { StringValue } from "ms";
-import { AppDataSource } from "../config/data-source";
-import { User, UserRole } from "../entities/User";
+import { User, UserRole, IUser } from "../models/User.model";
 import { body, validationResult } from "express-validator";
 
 export const register = [
@@ -23,11 +22,7 @@ export const register = [
       const { email, password, firstName, lastName, role, studentId, staffId } =
         req.body;
 
-      const userRepository = AppDataSource.getRepository(User);
-
-      const existingUser = await userRepository.findOne({
-        where: { email },
-      });
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
 
       if (existingUser) {
         res.status(400).json({ message: "User already exists" });
@@ -36,8 +31,8 @@ export const register = [
 
       const passwordHash = await bcrypt.hash(password, 10);
 
-      const user = userRepository.create({
-        email,
+      const user = new User({
+        email: email.toLowerCase(),
         passwordHash,
         firstName,
         lastName,
@@ -46,7 +41,7 @@ export const register = [
         staffId: role === "lecturer" || role === "admin" ? staffId : null,
       });
 
-      await userRepository.save(user);
+      await user.save();
 
       const jwtSecret = process.env.JWT_SECRET || "secret";
       const jwtExpiry: StringValue = (process.env.JWT_EXPIRES_IN ||
@@ -87,8 +82,7 @@ export const login = [
 
       const { email, password } = req.body;
 
-      const userRepository = AppDataSource.getRepository(User);
-      const user = await userRepository.findOne({ where: { email } });
+      const user = await User.findOne({ email: email.toLowerCase() });
 
       if (!user || !user.isActive) {
         res.status(401).json({ message: "Invalid credentials" });
@@ -131,7 +125,7 @@ export const login = [
 ];
 
 export const getProfile = async (
-  req: Request & { user?: User },
+  req: Request & { user?: IUser },
   res: Response
 ): Promise<void> => {
   try {

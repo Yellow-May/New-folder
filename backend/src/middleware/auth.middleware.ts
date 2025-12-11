@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AppDataSource } from '../config/data-source';
-import { User } from '../entities/User';
+import { User, IUser } from '../models/User.model';
 
 export interface AuthRequest extends Request {
-  user?: User;
+  user?: IUser;
 }
 
 export const authenticate = async (
@@ -24,17 +23,17 @@ export const authenticate = async (
       userId: string;
     };
 
-    const userRepository = AppDataSource.getRepository(User);
-    const user = await userRepository.findOne({
-      where: { id: decoded.userId, isActive: true },
-    });
+    const user = await User.findById(decoded.userId);
 
-    if (!user) {
+    if (!user || !user.isActive) {
       res.status(401).json({ message: 'Invalid token' });
       return;
     }
 
-    req.user = user;
+    // Convert to plain object with id field
+    const userObj = user.toObject();
+    userObj.id = user._id.toString();
+    req.user = userObj as IUser;
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid token' });

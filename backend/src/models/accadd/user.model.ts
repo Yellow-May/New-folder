@@ -1,6 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 
-export interface IAccaddAuth extends Document {
+export interface IAccaddUser extends Document {
   email: string;
   fullName: string;
   supabaseUserId: string;
@@ -9,7 +9,7 @@ export interface IAccaddAuth extends Document {
   updatedAt: Date;
 }
 
-const AccaddAuthSchema = new Schema<IAccaddAuth>(
+const AccaddUserSchema = new Schema<IAccaddUser>(
   {
     email: {
       type: String,
@@ -41,8 +41,9 @@ const AccaddAuthSchema = new Schema<IAccaddAuth>(
 );
 
 // Create indexes for faster queries
-AccaddAuthSchema.index({ email: 1 });
-AccaddAuthSchema.index({ supabaseUserId: 1 });
+AccaddUserSchema.index({ email: 1 }, { unique: true });
+AccaddUserSchema.index({ supabaseUserId: 1 }, { unique: true });
 
-export const AccaddAuth = model<IAccaddAuth>('AccaddAuth', AccaddAuthSchema);
+// Export model with explicit collection name 'accadd-users'
+export const AccaddUser = model<IAccaddUser>('AccaddUser', AccaddUserSchema, 'accadd-users');
 

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../config/data-source';
-import { News, NewsStatus } from '../entities/News';
+import { News, NewsStatus } from '../models/News.model';
+import { User } from '../models/User.model';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { body, validationResult, query } from 'express-validator';
 
@@ -16,32 +16,45 @@ export const getAllNews = [
         return;
       }
 
-      const newsRepository = AppDataSource.getRepository(News);
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
       const status = req.query.status as string;
 
-      const queryBuilder = newsRepository
-        .createQueryBuilder('news')
-        .leftJoinAndSelect('news.author', 'author')
-        .orderBy('news.createdAt', 'DESC');
-
+      const query: any = {};
       if (status) {
-        queryBuilder.where('news.status = :status', { status });
+        query.status = status;
       } else if (!(req as AuthRequest).user) {
-        queryBuilder.where('news.status = :status', {
-          status: NewsStatus.PUBLISHED,
-        });
+        query.status = NewsStatus.PUBLISHED;
       }
 
-      const [news, total] = await queryBuilder
-        .skip(skip)
-        .take(limit)
-        .getManyAndCount();
+      const [news, total] = await Promise.all([
+        News.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        News.countDocuments(query),
+      ]);
+
+      // Populate author information
+      const newsWithAuthors = await Promise.all(
+        news.map(async (item) => {
+          const author = await User.findById(item.authorId).select('id firstName lastName email').lean();
+          return {
+            ...item,
+            author: author ? {
+              id: author.id,
+              firstName: author.firstName,
+              lastName: author.lastName,
+              email: author.email,
+            } : null,
+          };
+        })
+      );
 
       res.json({
-        news,
+        news: newsWithAuthors,
         pagination: {
           page,
           limit,
@@ -61,11 +74,7 @@ export const getNewsById = async (
   res: Response
 ): Promise<void> => {
   try {
-    const newsRepository = AppDataSource.getRepository(News);
-    const news = await newsRepository.findOne({
-      where: { id: req.params.id },
-      relations: ['author'],
-    });
+    const news = await News.findById(req.params.id).lean();
 
     if (!news) {
       res.status(404).json({ message: 'News not found' });
@@ -80,7 +89,19 @@ export const getNewsById = async (
       return;
     }
 
-    res.json(news);
+    // Populate author
+    const author = await User.findById(news.authorId).select('id firstName lastName email').lean();
+    const newsWithAuthor = {
+      ...news,
+      author: author ? {
+        id: author.id,
+        firstName: author.firstName,
+        lastName: author.lastName,
+        email: author.email,
+      } : null,
+    };
+
+    res.json(newsWithAuthor);
   } catch (error) {
     console.error('Get news by id error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -107,8 +128,7 @@ export const createNews = [
 
       const { title, content, category, status, imageUrl } = req.body;
 
-      const newsRepository = AppDataSource.getRepository(News);
-      const news = newsRepository.create({
+      const news = new News({
         title,
         content,
         category,
@@ -119,12 +139,19 @@ export const createNews = [
           status === NewsStatus.PUBLISHED ? new Date() : undefined,
       });
 
-      await newsRepository.save(news);
+      await news.save();
 
-      const savedNews = await newsRepository.findOne({
-        where: { id: news.id },
-        relations: ['author'],
-      });
+      // Populate author
+      const author = await User.findById(news.authorId).select('id firstName lastName email').lean();
+      const savedNews = {
+        ...news.toObject(),
+        author: author ? {
+          id: author.id,
+          firstName: author.firstName,
+          lastName: author.lastName,
+          email: author.email,
+        } : null,
+      };
 
       res.status(201).json(savedNews);
     } catch (error) {
@@ -151,10 +178,7 @@ export const updateNews = [
         return;
       }
 
-      const newsRepository = AppDataSource.getRepository(News);
-      const news = await newsRepository.findOne({
-        where: { id: req.params.id },
-      });
+      const news = await News.findById(req.params.id);
 
       if (!news) {
         res.status(404).json({ message: 'News not found' });
@@ -179,12 +203,19 @@ export const updateNews = [
         }
       }
 
-      await newsRepository.save(news);
+      await news.save();
 
-      const updatedNews = await newsRepository.findOne({
-        where: { id: news.id },
-        relations: ['author'],
-      });
+      // Populate author
+      const author = await User.findById(news.authorId).select('id firstName lastName email').lean();
+      const updatedNews = {
+        ...news.toObject(),
+        author: author ? {
+          id: author.id,
+          firstName: author.firstName,
+          lastName: author.lastName,
+          email: author.email,
+        } : null,
+      };
 
       res.json(updatedNews);
     } catch (error) {
@@ -204,10 +235,7 @@ export const deleteNews = async (
       return;
     }
 
-    const newsRepository = AppDataSource.getRepository(News);
-    const news = await newsRepository.findOne({
-      where: { id: req.params.id },
-    });
+    const news = await News.findById(req.params.id);
 
     if (!news) {
       res.status(404).json({ message: 'News not found' });
@@ -219,7 +247,7 @@ export const deleteNews = async (
       return;
     }
 
-    await newsRepository.remove(news);
+    await News.findByIdAndDelete(req.params.id);
 
     res.json({ message: 'News deleted successfully' });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { UserRole } from '../entities/User';
+import { UserRole } from '../models/User.model';
 import { AuthRequest } from './auth.middleware';
 
 export const requireRole = (...roles: UserRole[]) => {

@@ -8,7 +8,7 @@ import {
 } from '../controllers/news.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/roles.middleware';
-import { UserRole } from '../entities/User';
+import { UserRole } from '../models/User.model';
 
 const router = Router();
 

@@ -27,15 +27,6 @@ Then run migrations manually using Render Shell (see below).
 
 Add these environment variables in Render Dashboard:
 
-#### PostgreSQL (from Render PostgreSQL service)
-```
-DB_HOST=<your-render-postgres-hostname>
-DB_PORT=5432
-DB_USERNAME=<your-postgres-username>
-DB_PASSWORD=<your-postgres-password>
-DB_NAME=<your-database-name>
-```
-
 #### MongoDB
 ```
 MONGODB_URI=<your-mongodb-connection-string>
@@ -43,6 +34,11 @@ MONGODB_URI=<your-mongodb-connection-string>
 Example for MongoDB Atlas:
 ```
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/asceta_mongodb
+```
+
+For local MongoDB:
+```
+MONGODB_URI=mongodb://localhost:27017/asceta_mongodb
 ```
 
 #### Other Variables
@@ -55,12 +51,6 @@ FRONTEND_ADMIN_URL=<your-frontend-admin-url>
 ```
 
 ## How to Get Database Connection Info
-
-### PostgreSQL on Render
-1. Go to your Render Dashboard
-2. Click on your PostgreSQL database
-3. Copy the **Internal Database URL** or individual connection details
-4. Use these values for the `DB_*` environment variables
 
 ### MongoDB
 - If using MongoDB Atlas:
@@ -80,7 +70,7 @@ If you chose Option B (manual migrations), after deployment:
 2. Click on "Shell" tab
 3. Run these commands:
 ```bash
-yarn migration:run:prod
+yarn migration:up:prod
 yarn seed:prod  # Optional: only if you want to seed initial data
 ```
 
@@ -88,12 +78,13 @@ yarn seed:prod  # Optional: only if you want to seed initial data
 
 ### Build fails with "Cannot find module"
 - Make sure all dependencies are in `dependencies`, not `devDependencies`
-- TypeORM and TypeScript types should be in `dependencies` for production builds
+- Mongoose and TypeScript types should be in `dependencies` for production builds
 
 ### Migration fails
-- Check that all database environment variables are set correctly
-- Verify database is accessible from Render
+- Check that MONGODB_URI environment variable is set correctly
+- Verify MongoDB is accessible from Render
 - Check Render logs for detailed error messages
+- Ensure migrate-mongo-config.js is properly configured
 
 ### Server starts but crashes immediately
 - Check environment variables are set

@@ -1,32 +1,22 @@
-# Dual Database Setup
+# MongoDB Database Setup
 
-This backend now supports **two independent databases**:
-
-1. **PostgreSQL** - Using TypeORM (existing setup)
-2. **MongoDB** - Using Mongoose (new addition)
+This backend uses **MongoDB** as the primary database with **Mongoose** as the ODM (Object Document Mapper).
 
 ## Key Features
 
-- ✅ **Independent Operation**: Both databases work independently
-- ✅ **Fault Tolerance**: A failure in one database doesn't affect the other
-- ✅ **Graceful Degradation**: The server continues running even if one database fails
-- ✅ **Health Monitoring**: Check status of both databases via `/api/health` endpoint
+- ✅ **MongoDB**: Document-based NoSQL database
+- ✅ **Mongoose**: ODM for MongoDB with schema validation
+- ✅ **Migration System**: Using `migrate-mongo` for database migrations
+- ✅ **Health Monitoring**: Check database status via `/api/health` endpoint
 
 ## Configuration
 
 ### Environment Variables
 
-Add these to your `.env` file:
+Add this to your `.env` file:
 
 ```env
-# PostgreSQL Configuration (existing)
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-DB_NAME=asceta_db
-
-# MongoDB Configuration (new)
+# MongoDB Configuration
 MONGODB_URI=mongodb://localhost:27017/asceta_mongodb
 # Or for MongoDB Atlas:
 # MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/asceta_mongodb
@@ -41,99 +31,98 @@ MONGODB_URI=mongodb://localhost:27017/asceta_mongodb
 
 ## Usage
 
-### Using PostgreSQL (TypeORM)
+### Using Mongoose Models
 
-Continue using your existing TypeORM entities and repositories:
-
-```typescript
-import { AppDataSource } from "./config/data-source";
-import { User } from "./entities/User";
-
-// In your controller/service
-const userRepository = AppDataSource.getRepository(User);
-const users = await userRepository.find();
-```
-
-### Using MongoDB (Mongoose)
-
-1. **Check connection status before use**:
+Import and use Mongoose models directly:
 
 ```typescript
-import { getMongoDBStatus, getMongoDBConnection } from "./config/mongodb";
+import { User } from "./models/User.model";
+import { News } from "./models/News.model";
+import { Event } from "./models/Event.model";
+import { Page } from "./models/Page.model";
 
-// Check if MongoDB is available
-const mongoStatus = getMongoDBStatus();
-if (!mongoStatus.connected) {
-  // Handle gracefully - MongoDB is not available
-  console.warn("MongoDB not available");
-  return;
-}
-```
+// Find users
+const users = await User.find({ role: 'student' });
 
-2. **Create a MongoDB Model**:
-
-```typescript
-import { Schema, model } from "mongoose";
-
-interface IAnalytics {
-  event: string;
-  userId?: string;
-  data: Record<string, any>;
-  timestamp: Date;
-}
-
-const AnalyticsSchema = new Schema<IAnalytics>({
-  event: { type: String, required: true },
-  userId: { type: String, required: false },
-  data: { type: Schema.Types.Mixed, required: false },
-  timestamp: { type: Date, default: Date.now },
+// Create a user
+const user = new User({
+  email: 'user@example.com',
+  passwordHash: hashedPassword,
+  firstName: 'John',
+  lastName: 'Doe',
+  role: UserRole.STUDENT,
 });
+await user.save();
 
-export const Analytics = model<IAnalytics>("Analytics", AnalyticsSchema);
+// Find with pagination
+const news = await News.find({ status: 'published' })
+  .sort({ createdAt: -1 })
+  .skip(0)
+  .limit(10);
 ```
 
-3. **Use the model in your code**:
+## User Model Separation
 
-```typescript
-import { Analytics } from "./models/Analytics";
-import { getMongoDBStatus } from "./config/mongodb";
+The backend uses separate user models for different authentication systems:
 
-export async function logAnalytics(event: string, userId: string, data: any) {
-  // Always check connection status
-  if (!getMongoDBStatus().connected) {
-    console.warn("MongoDB not available, skipping analytics");
-    return;
-  }
+- **User Model** (`users` collection): Main ASCETA authentication system
+  - JWT-based authentication
+  - Roles: student, lecturer, admin
+  - Used by: News, Events, Pages (author/createdBy references)
 
-  try {
-    const analytics = new Analytics({
-      event,
-      userId,
-      data,
-      timestamp: new Date(),
-    });
+- **AccaddUser Model** (`accadd-users` collection): ACCADD system authentication
+  - Supabase-based authentication
+  - Separate from main user system
+  - Used by: ACCADD payment and auth controllers
 
-    await analytics.save();
-  } catch (error) {
-    console.error("Failed to save analytics:", error);
-    // Don't throw - analytics failures shouldn't break the app
-  }
-}
+## Migration System
+
+The backend uses `migrate-mongo` for database migrations.
+
+### Migration Commands
+
+```bash
+# Create a new migration
+yarn migration:create
+
+# Run pending migrations
+yarn migration:up
+
+# Rollback last migration
+yarn migration:down
+
+# Check migration status
+yarn migration:status
+```
+
+### Migration Files
+
+Migrations are stored in `src/migrations/mongodb/` directory. Each migration file exports `up()` and `down()` functions.
+
+Example migration:
+```javascript
+module.exports = {
+  async up(db, client) {
+    // Migration logic here
+    await db.collection('users').createIndex({ email: 1 }, { unique: true });
+  },
+
+  async down(db, client) {
+    // Rollback logic here
+    await db.collection('users').dropIndex({ email: 1 });
+  },
+};
 ```
 
 ## Health Check
 
-The `/api/health` endpoint now returns the status of both databases:
+The `/api/health` endpoint returns the MongoDB connection status:
 
 ```json
 {
   "status": "ok",
   "message": "ASCETA API is running",
-  "databases": {
-    "postgresql": {
-      "connected": true,
-      "error": null
-    },
+  "database": {
     "mongodb": {
       "connected": true,
       "error": null,
@@ -144,54 +133,35 @@ The `/api/health` endpoint now returns the status of both databases:
 ```
 
 **Status values**:
-
-- `status: "ok"` - Both databases connected
-- `status: "degraded"` - One or both databases disconnected (HTTP 503)
+- `status: "ok"` - MongoDB connected
+- `status: "degraded"` - MongoDB disconnected (HTTP 503)
 
 **MongoDB readyState values**:
-
 - `0` - Disconnected
 - `1` - Connected
 - `2` - Connecting
 - `3` - Disconnecting
 
-## Best Practices
+## Collections
 
-1. **Always check connection status** before using MongoDB
-2. **Handle errors gracefully** - Don't let MongoDB failures break PostgreSQL operations
-3. **Use appropriate database for the use case**:
-   - **PostgreSQL**: Structured relational data (users, news, events, pages)
-   - **MongoDB**: Unstructured data, logs, analytics, caching, real-time data
+The following collections are used:
 
-## Example Use Cases
-
-### PostgreSQL (TypeORM)
-
-- User authentication and profiles
-- News articles
-- Events
-- Pages content
-- Any structured relational data
-
-### MongoDB (Mongoose)
-
-- Application logs
-- User analytics and tracking
-- Session data
-- Real-time notifications
-- Caching layer
-- Document storage
+- **users**: Main ASCETA users (students, lecturers, admins)
+- **accadd-users**: ACCADD system users
+- **news**: News articles
+- **events**: Events
+- **pages**: Static pages
+- **migrations**: Migration tracking (managed by migrate-mongo)
 
 ## Troubleshooting
 
 ### MongoDB Connection Fails
 
 1. **Check MongoDB is running**:
-
    ```bash
    # Windows
    net start MongoDB
-
+   
    # Linux/Mac
    sudo systemctl status mongod
    ```
@@ -200,16 +170,18 @@ The `/api/health` endpoint now returns the status of both databases:
 
 3. **Check MongoDB logs** for connection errors
 
-4. **Server will still start** - PostgreSQL operations will continue to work
+4. **Server will still start** - The API will be available but database operations will fail
 
-### PostgreSQL Connection Fails
+### Migration Issues
 
-1. **Check PostgreSQL is running**
+1. **Check migration status**: `yarn migration:status`
+2. **Rollback if needed**: `yarn migration:down`
+3. **Verify migration files** are in `src/migrations/mongodb/` directory
 
-2. **Verify credentials** in `.env` file
+## Best Practices
 
-3. **Server will still start** - MongoDB operations will continue to work
-
-### Both Databases Fail
-
-The server will still start, but most features may not work. Check the `/api/health` endpoint to see which databases are available.
+1. **Always use Mongoose models** - Don't access MongoDB directly
+2. **Use migrations** for schema changes and indexes
+3. **Handle errors gracefully** - MongoDB operations can fail
+4. **Use indexes** for frequently queried fields
+5. **Validate data** using Mongoose schemas

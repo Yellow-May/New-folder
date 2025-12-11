@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../config/data-source';
-import { Page } from '../entities/Page';
+import { Page } from '../models/Page.model';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { body, validationResult } from 'express-validator';
 
@@ -9,10 +8,7 @@ export const getAllPages = async (
   res: Response
 ): Promise<void> => {
   try {
-    const pageRepository = AppDataSource.getRepository(Page);
-    const pages = await pageRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+    const pages = await Page.find().sort({ createdAt: -1 }).lean();
 
     res.json(pages);
   } catch (error) {
@@ -26,10 +22,7 @@ export const getPageBySlug = async (
   res: Response
 ): Promise<void> => {
   try {
-    const pageRepository = AppDataSource.getRepository(Page);
-    const page = await pageRepository.findOne({
-      where: { slug: req.params.slug },
-    });
+    const page = await Page.findOne({ slug: req.params.slug.toLowerCase() }).lean();
 
     if (!page) {
       res.status(404).json({ message: 'Page not found' });
@@ -62,24 +55,22 @@ export const createPage = [
 
       const { slug, title, content, metaDescription } = req.body;
 
-      const pageRepository = AppDataSource.getRepository(Page);
-
-      const existingPage = await pageRepository.findOne({ where: { slug } });
+      const existingPage = await Page.findOne({ slug: slug.toLowerCase() });
       if (existingPage) {
         res.status(400).json({ message: 'Page with this slug already exists' });
         return;
       }
 
-      const page = pageRepository.create({
-        slug,
+      const page = new Page({
+        slug: slug.toLowerCase(),
         title,
         content,
         metaDescription,
       });
 
-      await pageRepository.save(page);
+      await page.save();
 
-      res.status(201).json(page);
+      res.status(201).json(page.toObject());
     } catch (error) {
       console.error('Create page error:', error);
       res.status(500).json({ message: 'Internal server error' });
@@ -103,10 +94,7 @@ export const updatePage = [
         return;
       }
 
-      const pageRepository = AppDataSource.getRepository(Page);
-      const page = await pageRepository.findOne({
-        where: { id: req.params.id },
-      });
+      const page = await Page.findById(req.params.id);
 
       if (!page) {
         res.status(404).json({ message: 'Page not found' });
@@ -119,9 +107,9 @@ export const updatePage = [
       if (content) page.content = content;
       if (metaDescription !== undefined) page.metaDescription = metaDescription;
 
-      await pageRepository.save(page);
+      await page.save();
 
-      res.json(page);
+      res.json(page.toObject());
     } catch (error) {
       console.error('Update page error:', error);
       res.status(500).json({ message: 'Internal server error' });
@@ -139,17 +127,14 @@ export const deletePage = async (
       return;
     }
 
-    const pageRepository = AppDataSource.getRepository(Page);
-    const page = await pageRepository.findOne({
-      where: { id: req.params.id },
-    });
+    const page = await Page.findById(req.params.id);
 
     if (!page) {
       res.status(404).json({ message: 'Page not found' });
       return;
     }
 
-    await pageRepository.remove(page);
+    await Page.findByIdAndDelete(req.params.id);
 
     res.json({ message: 'Page deleted successfully' });
   } catch (error) {

@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { StringValue } from "ms";
-import { AppDataSource } from "../config/data-source";
-import { User, UserRole } from "../entities/User";
+import { User, UserRole } from "../models/User.model";
 import { body, validationResult } from "express-validator";
 
 export const applyForAdmission = [
@@ -34,12 +33,8 @@ export const applyForAdmission = [
         waecExamDate,
       } = req.body;
 
-      const userRepository = AppDataSource.getRepository(User);
-
       // Check if user already exists
-      const existingUser = await userRepository.findOne({
-        where: { email },
-      });
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
 
       if (existingUser) {
         res.status(400).json({ message: "User with this email already exists" });
@@ -50,8 +45,8 @@ export const applyForAdmission = [
       const passwordHash = await bcrypt.hash(password, 10);
 
       // Create user with admission data
-      const user = userRepository.create({
-        email,
+      const user = new User({
+        email: email.toLowerCase(),
         passwordHash,
         firstName,
         lastName,
@@ -61,7 +56,7 @@ export const applyForAdmission = [
         waecExamDate: examType === "waec" ? new Date(waecExamDate) : null,
       });
 
-      await userRepository.save(user);
+      await user.save();
 
       // Generate JWT token
       const jwtSecret = process.env.JWT_SECRET || "secret";
